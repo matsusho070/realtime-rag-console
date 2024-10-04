@@ -1,0 +1,13 @@
+{
+  "name": "url-opener",
+  "version": "1.0.0",
+  "description": "A Node.js application to open URLs using Puppeteer",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "puppeteer": "^10.0.0"
+  }
+}
