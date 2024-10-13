@@ -8,7 +8,7 @@
 // const USE_LOCAL_RELAY_SERVER_URL: string | undefined = 'http://localhost:8081';
 const USE_LOCAL_RELAY_SERVER_URL: string | undefined = void 0;
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 
 import { RealtimeClient } from '@openai/realtime-api-beta';
 import { ItemType } from '@openai/realtime-api-beta/dist/lib/client.js';
@@ -19,28 +19,19 @@ import { WavRenderer } from '../utils/wav_renderer';
 import { X, Edit, Zap, ArrowUp, ArrowDown } from 'react-feather';
 import { Button } from '../components/button/Button';
 import { Toggle } from '../components/toggle/Toggle';
-import { Map } from '../components/Map';
 
 import './ConsolePage.scss';
-import { isJsxOpeningLikeElement } from 'typescript';
+// Core viewer
+import { Worker, Viewer, RenderViewer } from '@react-pdf-viewer/core';
 
-/**
- * Type for result from get_weather() function call
- */
-interface Coordinates {
-  lat: number;
-  lng: number;
-  location?: string;
-  temperature?: {
-    value: number;
-    units: string;
-  };
-  wind_speed?: {
-    value: number;
-    units: string;
-  };
-}
+// Plugins
+import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
+import { createStore, Plugin, PluginFunctions } from '@react-pdf-viewer/core';
 
+
+// Import styles
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 /**
  * Type for all event logs
  */
@@ -51,16 +42,13 @@ interface RealtimeEvent {
   event: { [key: string]: any };
 }
 
+
 export function ConsolePage() {
   /**
    * Ask user for API Key
    * If we're using the local relay server, we don't need this
    */
-  const apiKey = USE_LOCAL_RELAY_SERVER_URL
-    ? ''
-    : localStorage.getItem('tmp::voice_api_key') ||
-      prompt('OpenAI API Key') ||
-      '';
+  const apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
   if (apiKey !== '') {
     localStorage.setItem('tmp::voice_api_key', apiKey);
   }
@@ -105,7 +93,6 @@ export function ConsolePage() {
    * - items are all conversation items (dialog)
    * - realtimeEvents are event logs, which can be expanded
    * - memoryKv is for set_memory() function
-   * - coords, marker are for get_weather() function
    */
   const [items, setItems] = useState<ItemType[]>([]);
   const [realtimeEvents, setRealtimeEvents] = useState<RealtimeEvent[]>([]);
@@ -116,11 +103,8 @@ export function ConsolePage() {
   const [canPushToTalk, setCanPushToTalk] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [memoryKv, setMemoryKv] = useState<{ [key: string]: any }>({});
-  const [coords, setCoords] = useState<Coordinates | null>({
-    lat: 37.775593,
-    lng: -122.418137,
-  });
-  const [marker, setMarker] = useState<Coordinates | null>(null);
+  // const [pdfUrl, setPdfUrl] = useState<string>('http://localhost:8000/pdf/あかしゃのみつこ.pdf');
+  const [pdfUrl, setPdfUrl] = useState<string>('');
 
   /**
    * Utility for formatting the timing of logs
@@ -155,6 +139,7 @@ export function ConsolePage() {
     }
   }, []);
 
+
   /**
    * Connect to conversation:
    * WavRecorder taks speech input, WavStreamPlayer output, client is API client
@@ -178,14 +163,6 @@ export function ConsolePage() {
 
     // Connect to realtime API
     await client.connect();
-    client.sendUserMessageContent([
-      {
-        type: `input_text`,
-        text: `Hello!`,
-        // text: `For testing purposes, I want you to list ten car brands. Number each item, e.g. "one (or whatever number you are one): the item name".`
-      },
-    ]);
-
     if (client.getTurnDetectionType() === 'server_vad') {
       await wavRecorder.record((data) => client.appendInputAudio(data.mono));
     }
@@ -199,12 +176,6 @@ export function ConsolePage() {
     setRealtimeEvents([]);
     setItems([]);
     setMemoryKv({});
-    setCoords({
-      lat: 37.775593,
-      lng: -122.418137,
-    });
-    setMarker(null);
-
     const client = clientRef.current;
     client.disconnect();
 
@@ -364,6 +335,34 @@ export function ConsolePage() {
     };
   }, []);
 
+
+  interface StoreProps {
+    jumpToPage?(pageIndex: number): void;
+  }
+
+  interface JumpToPagePlugin extends Plugin {
+      jumpToPage(pageIndex: number): void;
+  }
+
+  const jumpToPagePlugin = (): JumpToPagePlugin => {
+      const store = useMemo(() => createStore<StoreProps>(), []);
+
+      return {
+          install: (pluginFunctions: PluginFunctions) => {
+              store.update('jumpToPage', pluginFunctions.jumpToPage);
+              console.log({pluginFunctions});
+          },
+          jumpToPage: (pageIndex: number) => {
+              const fn = store.get('jumpToPage');
+              console.log({fn, pageIndex})
+              if (fn) {
+                  fn(pageIndex);
+              }
+          },
+      };
+  };
+  const jumpToPagePluginInstance = jumpToPagePlugin();
+
   /**
    * Core RealtimeClient and audio capture setup
    * Set all of our instructions, tools, events and more
@@ -378,79 +377,37 @@ export function ConsolePage() {
     // Set transcription, otherwise we don't get user transcriptions back
     client.updateSession({ input_audio_transcription: { model: 'whisper-1' } });
 
-    // Add tools
     client.addTool(
       {
-        name: 'set_memory',
-        description: 'Saves important data about the user into memory.',
+        name: 'search_related_information',
+        description: 'Search related information from the backend server.',
         parameters: {
           type: 'object',
           properties: {
-            key: {
+            query: {
               type: 'string',
-              description:
-                'The key of the memory value. Always use lowercase and underscores, no other characters.',
-            },
-            value: {
-              type: 'string',
-              description: 'Value can be anything represented as a string',
+              description: 'The query to search.',
             },
           },
-          required: ['key', 'value'],
+          required: ['query'],
         },
       },
-      async ({ key, value }: { [key: string]: any }) => {
-        setMemoryKv((memoryKv) => {
-          const newKv = { ...memoryKv };
-          newKv[key] = value;
-          return newKv;
+
+      async ({ query }: { [key: string]: any }) => {
+        const response = await fetch(`http://localhost:8000/search/?query=${encodeURIComponent(query)}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
-        return { ok: true };
+        const data = await response.json();
+        if(data.length > 0 && data[0]?.metadata?.source) {
+          setPdfUrl("http://localhost:8000/" + data[0].metadata.source);
+          setTimeout(() => jumpToPagePluginInstance.jumpToPage(data[0].metadata.page), 1000); // Add delay to ensure jumpToPagePluginInstance is registered
+        }
+        return data;
       }
     );
-    client.addTool(
-      {
-        name: 'get_weather',
-        description:
-          'Retrieves the weather for a given lat, lng coordinate pair. Specify a label for the location.',
-        parameters: {
-          type: 'object',
-          properties: {
-            lat: {
-              type: 'number',
-              description: 'Latitude',
-            },
-            lng: {
-              type: 'number',
-              description: 'Longitude',
-            },
-            location: {
-              type: 'string',
-              description: 'Name of the location',
-            },
-          },
-          required: ['lat', 'lng', 'location'],
-        },
-      },
-      async ({ lat, lng, location }: { [key: string]: any }) => {
-        setMarker({ lat, lng, location });
-        setCoords({ lat, lng, location });
-        const result = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,wind_speed_10m`
-        );
-        const json = await result.json();
-        const temperature = {
-          value: json.current.temperature_2m as number,
-          units: json.current_units.temperature_2m as string,
-        };
-        const wind_speed = {
-          value: json.current.wind_speed_10m as number,
-          units: json.current_units.wind_speed_10m as string,
-        };
-        setMarker({ lat, lng, location, temperature, wind_speed });
-        return json;
-      }
-    );
+
 
     // handle realtime events from client + server for event logging
     client.on('realtime.event', (realtimeEvent: RealtimeEvent) => {
@@ -491,11 +448,15 @@ export function ConsolePage() {
 
     setItems(client.conversation.getItems());
 
+
     return () => {
       // cleanup; resets to defaults
       client.reset();
     };
   }, []);
+
+  const defaultLayoutPluginInstance = defaultLayoutPlugin(
+  );
 
   /**
    * Render the application
@@ -690,35 +651,19 @@ export function ConsolePage() {
         </div>
         <div className="content-right">
           <div className="content-block map">
-            <div className="content-block-title">get_weather()</div>
-            <div className="content-block-title bottom">
-              {marker?.location || 'not yet retrieved'}
-              {!!marker?.temperature && (
-                <>
-                  <br />
-                  🌡️ {marker.temperature.value} {marker.temperature.units}
-                </>
-              )}
-              {!!marker?.wind_speed && (
-                <>
-                  {' '}
-                  🍃 {marker.wind_speed.value} {marker.wind_speed.units}
-                </>
-              )}
-            </div>
             <div className="content-block-body full">
-              {coords && (
-                <Map
-                  center={[coords.lat, coords.lng]}
-                  location={coords.location}
-                />
-              )}
-            </div>
-          </div>
-          <div className="content-block kv">
-            <div className="content-block-title">set_memory()</div>
-            <div className="content-block-body content-kv">
-              {JSON.stringify(memoryKv, null, 2)}
+            <Worker workerUrl='https://unpkg.com/pdfjs-dist@3.0.279/legacy/build/pdf.worker.js'/>
+            {
+              pdfUrl && <Viewer
+              fileUrl={pdfUrl || ''}
+              plugins={[
+                  // Register plugins
+                  jumpToPagePluginInstance,
+                  defaultLayoutPluginInstance,
+              ]}
+              />
+  
+            }
             </div>
           </div>
         </div>

@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+langchain==0.2.10
+langchain-openai==0.1.17
+langchain-community==0.2.9
+faiss-cpu==1.8.0.post1
+pypdf
