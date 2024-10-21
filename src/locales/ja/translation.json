@@ -1,0 +1,22 @@
+{
+  "realtime_console": "リアルタイムコンソール",
+  "api_key": "APIキー",
+  "events": "イベント",
+  "awaiting_connection": "接続待ち...",
+  "trimmed": "トリム済み",
+  "error": "エラー",
+  "client": "クライアント",
+  "server": "サーバー",
+  "input_audio_buffer.append": "入力オーディオバッファ追加",
+  "response.audio.delta": "応答オーディオデルタ",
+  "conversation": "会話",
+  "awaiting_transcript": "トランスクリプト待ち...",
+  "item_sent": "アイテム送信済み",
+  "truncated": "切り捨て",
+  "manual": "手動",
+  "vad": "VAD",
+  "release_to_send": "送信するにはリリース",
+  "push_to_talk": "話すには押す",
+  "disconnect": "切断",
+  "connect": "接続"
+}
