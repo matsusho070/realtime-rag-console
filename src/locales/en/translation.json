@@ -1,0 +1,22 @@
+{
+  "realtime_console": "Realtime Console",
+  "api_key": "API Key",
+  "events": "Events",
+  "awaiting_connection": "Awaiting connection...",
+  "trimmed": "Trimmed",
+  "error": "Error",
+  "client": "Client",
+  "server": "Server",
+  "input_audio_buffer.append": "Input Audio Buffer Append",
+  "response.audio.delta": "Response Audio Delta",
+  "conversation": "Conversation",
+  "awaiting_transcript": "Awaiting transcript...",
+  "item_sent": "Item sent",
+  "truncated": "Truncated",
+  "manual": "Manual",
+  "vad": "VAD",
+  "release_to_send": "Release to send",
+  "push_to_talk": "Push to talk",
+  "disconnect": "Disconnect",
+  "connect": "Connect"
+}

@@ -9,6 +9,7 @@
 const USE_LOCAL_RELAY_SERVER_URL: string | undefined = void 0;
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { RealtimeClient } from '@openai/realtime-api-beta';
 import { ItemType } from '@openai/realtime-api-beta/dist/lib/client.js';
@@ -44,6 +45,8 @@ interface RealtimeEvent {
 
 
 export function ConsolePage() {
+  const { t } = useTranslation();
+
   /**
    * Ask user for API Key
    * If we're using the local relay server, we don't need this
@@ -466,7 +469,7 @@ export function ConsolePage() {
       <div className="content-top">
         <div className="content-title">
           <img src="/openai-logomark.svg" />
-          <span>realtime console</span>
+          <span>{t('realtime_console')}</span>
         </div>
         <div className="content-api-key">
           {!USE_LOCAL_RELAY_SERVER_URL && (
@@ -474,7 +477,7 @@ export function ConsolePage() {
               icon={Edit}
               iconPosition="end"
               buttonStyle="flush"
-              label={`api key: ${apiKey.slice(0, 3)}...`}
+              label={`${t('api_key')}: ${apiKey.slice(0, 3)}...`}
               onClick={() => resetAPIKey()}
             />
           )}
@@ -491,16 +494,16 @@ export function ConsolePage() {
                 <canvas ref={serverCanvasRef} />
               </div>
             </div>
-            <div className="content-block-title">events</div>
+            <div className="content-block-title">{t('events')}</div>
             <div className="content-block-body" ref={eventsScrollRef}>
-              {!realtimeEvents.length && `awaiting connection...`}
+              {!realtimeEvents.length && t('awaiting_connection')}
               {realtimeEvents.map((realtimeEvent, i) => {
                 const count = realtimeEvent.count;
                 const event = { ...realtimeEvent.event };
                 if (event.type === 'input_audio_buffer.append') {
-                  event.audio = `[trimmed: ${event.audio.length} bytes]`;
+                  event.audio = `[${t('trimmed')}: ${event.audio.length} bytes]`;
                 } else if (event.type === 'response.audio.delta') {
-                  event.delta = `[trimmed: ${event.delta.length} bytes]`;
+                  event.delta = `[${t('trimmed')}: ${event.delta.length} bytes]`;
                 }
                 return (
                   <div className="event" key={event.event_id}>
@@ -536,12 +539,12 @@ export function ConsolePage() {
                           )}
                           <span>
                             {event.type === 'error'
-                              ? 'error!'
-                              : realtimeEvent.source}
+                              ? t('error')
+                              : t(realtimeEvent.source)}
                           </span>
                         </div>
                         <div className="event-type">
-                          {event.type}
+                          {t(event.type)}
                           {count && ` (${count})`}
                         </div>
                       </div>
@@ -557,15 +560,15 @@ export function ConsolePage() {
             </div>
           </div>
           <div className="content-block conversation">
-            <div className="content-block-title">conversation</div>
+            <div className="content-block-title">{t('conversation')}</div>
             <div className="content-block-body" data-conversation-content>
-              {!items.length && `awaiting connection...`}
+              {!items.length && t('awaiting_connection')}
               {items.map((conversationItem, i) => {
                 return (
                   <div className="conversation-item" key={conversationItem.id}>
                     <div className={`speaker ${conversationItem.role || ''}`}>
                       <div>
-                        {(
+                        {t(
                           conversationItem.role || conversationItem.type
                         ).replaceAll('_', ' ')}
                       </div>
@@ -595,9 +598,9 @@ export function ConsolePage() {
                           <div>
                             {conversationItem.formatted.transcript ||
                               (conversationItem.formatted.audio?.length
-                                ? '(awaiting transcript)'
+                                ? t('awaiting_transcript')
                                 : conversationItem.formatted.text ||
-                                  '(item sent)')}
+                                  t('item_sent'))}
                           </div>
                         )}
                       {!conversationItem.formatted.tool &&
@@ -605,7 +608,7 @@ export function ConsolePage() {
                           <div>
                             {conversationItem.formatted.transcript ||
                               conversationItem.formatted.text ||
-                              '(truncated)'}
+                              t('truncated')}
                           </div>
                         )}
                       {conversationItem.formatted.file && (
@@ -623,14 +626,16 @@ export function ConsolePage() {
           <div className="content-actions">
             <Toggle
               defaultValue={false}
-              labels={['manual', 'vad']}
+              labels={[t('manual'), t('vad')]}
               values={['none', 'server_vad']}
               onChange={(_, value) => changeTurnEndType(value)}
             />
             <div className="spacer" />
             {isConnected && canPushToTalk && (
               <Button
-                label={isRecording ? 'release to send' : 'push to talk'}
+                label={
+                  isRecording ? t('release_to_send') : t('push_to_talk')
+                }
                 buttonStyle={isRecording ? 'alert' : 'regular'}
                 disabled={!isConnected || !canPushToTalk}
                 onMouseDown={startRecording}
@@ -639,7 +644,7 @@ export function ConsolePage() {
             )}
             <div className="spacer" />
             <Button
-              label={isConnected ? 'disconnect' : 'connect'}
+              label={isConnected ? t('disconnect') : t('connect')}
               iconPosition={isConnected ? 'end' : 'start'}
               icon={isConnected ? X : Zap}
               buttonStyle={isConnected ? 'regular' : 'action'}
